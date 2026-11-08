@@ -7,29 +7,73 @@
 <link rel="icon" href="data:,">
 <style>
   html, body { margin: 0; background: #ebe8e2; }
-  main { display: flex; justify-content: center; padding: 24px 16px 40px; }
-  img {
-    display: block;
-    width: min(100%, 440px);
-    height: auto;
-    aspect-ratio: 882 / 3087;
-    background: #fff;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, .15);
-    opacity: 0;
-    transform: translateY(-12px);
-    transition: opacity .8s ease, transform .8s ease;
+  main { display: flex; flex-direction: column; align-items: center; padding: 24px 16px 40px; }
+  .card { width: min(100%, 440px); background: #fff; box-shadow: 0 2px 12px rgba(0, 0, 0, .15); }
+  #kuji { display: block; height: auto; aspect-ratio: 882 / 3087; }
+
+  /* 表紙: 短冊の折り線(y=756)より上を180°回転して正しい向きで見せる */
+  #cover {
+    position: fixed; inset: 0; z-index: 1;
+    /* 短冊上部と同じ位置に重ね、その場でフェードさせる（mainと同じ余白） */
+    display: flex; align-items: flex-start; justify-content: center; padding: 24px 16px;
+    background: #ebe8e2;
+    opacity: 0; transition: opacity .6s ease;
   }
-  img.shown { opacity: 1; transform: none; }
+  #cover .card { position: relative; overflow: hidden; aspect-ratio: 882 / 756; }
+  #cover img { position: absolute; left: 0; bottom: 0; width: 100%; height: auto; transform: rotate(180deg); }
+
+  #kuji, #save { opacity: 0; transition: opacity .9s ease; }
+  body.cover #cover { opacity: 1; }
+  body.open #cover { opacity: 0; pointer-events: none; transition-duration: .9s; }
+  body.open #kuji, body.open #save { opacity: 1; }
+
+  #save {
+    margin-top: 24px; padding: 10px 32px;
+    font: 15px "Hiragino Mincho ProN", "Yu Mincho", serif; letter-spacing: .1em;
+    color: #222; background: #fff; border: 1px solid #555; border-radius: 999px;
+  }
 </style>
 </head>
 <body>
-<main><img id="kuji" alt="おみくじ"></main>
+<div id="cover"><div class="card"><img alt=""></div></div>
+<main>
+  <img id="kuji" class="card" alt="おみくじ">
+  <button id="save" type="button">画像を保存</button>
+</main>
 <script>
   const COUNT = 80;
-  const n = Math.floor(Math.random() * COUNT) + 1;
-  const img = document.getElementById('kuji');
-  img.onload = () => img.classList.add('shown');
-  img.src = 'img/' + String(n).padStart(2, '0') + '.webp';
+  const n = String(Math.floor(Math.random() * COUNT) + 1).padStart(2, '0');
+  const slip = document.getElementById('kuji');
+  const save = document.getElementById('save');
+  let file;
+
+  slip.onload = () => {
+    document.body.classList.add('cover');
+    setTimeout(() => document.body.classList.add('open'), 2200);
+    // iOSの共有シートはクリック直後に呼ぶ必要があるため、保存用PNGは先に作っておく
+    const c = document.createElement('canvas');
+    c.width = slip.naturalWidth;
+    c.height = slip.naturalHeight;
+    c.getContext('2d').drawImage(slip, 0, 0);
+    c.toBlob(b => { file = new File([b], `omikuji-${n}.png`, { type: 'image/png' }); }, 'image/png');
+  };
+  slip.src = document.querySelector('#cover img').src = `img/${n}.webp`;
+
+  // iOSはダウンロードだと「ファイル」行きになるため、共有シート（「画像を保存」で写真へ）を使う
+  const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  save.onclick = async () => {
+    if (!file) return;
+    if (isIOS && navigator.canShare?.({ files: [file] })) {
+      try { await navigator.share({ files: [file] }); } catch (e) {}
+      return;
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(file);
+    a.download = file.name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
 </script>
 </body>
 </html>
