@@ -17,11 +17,18 @@
   /* 表紙: img/cover.webp（短冊上部を縦書きが読める向きに回したもの 756x882）を
      タイトル側（右 x>=360）と注意書き側（左 x<360）の2枚に分け、注意書きを左へ開く */
   #cover {
-    position: fixed; inset: 0; z-index: 1;
-    display: flex; align-items: center; justify-content: center; padding: 16px;
-    background: #ebe8e2;
+    position: fixed; inset: 0; z-index: 2;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px;
+    background: #ebe8e2; cursor: pointer; user-select: none;
+    touch-action: manipulation; -webkit-tap-highlight-color: transparent;
     opacity: 0; transition: opacity .6s ease;
   }
+  .hint {
+    margin: 20px 0 0; color: #444; letter-spacing: .2em;
+    font: 13px "Hiragino Mincho ProN", "Yu Mincho", serif;
+    animation: blink 2.4s ease-in-out infinite;
+  }
+  @keyframes blink { 50% { opacity: .8; } }
   .fold {
     position: relative; width: min(100%, 400px); aspect-ratio: 756 / 882;
     perspective: 1400px; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, .15));
@@ -45,30 +52,38 @@
   #kuji, #save { opacity: 0; transition: opacity .9s ease .3s; }
   body.open #kuji, body.open #save { opacity: 1; }
 
-  /* 保存アイコン: 短冊の右上の角に重ねる。全80枚で上端3.2%は全幅、右端11%は上部の文字が無い */
+  /* 保存アイコン: 読んでいる間は画面右下に追従し、最後は短冊の下（右端）に収まる。
+     短冊右下の角には短冊自体のQRがあるので重ねない */
+  .tools {
+    position: sticky; bottom: 16px; z-index: 1;
+    height: 48px; margin-top: 12px; display: flex; justify-content: flex-end;
+  }
   #save {
-    position: absolute; top: 4px; right: 4px;
-    width: 34px; height: 34px; padding: 0;
+    flex: none; width: 48px; height: 48px; padding: 0;
     display: flex; align-items: center; justify-content: center;
     color: #333; background: #fff; border: 0; border-radius: 50%;
-    box-shadow: 0 1px 6px rgba(0, 0, 0, .18); cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .25); cursor: pointer;
   }
 </style>
 </head>
 <body>
-<div id="cover"><div class="fold"><div class="leaf note"></div><div class="leaf title"></div></div></div>
+<div id="cover">
+  <div class="fold"><div class="leaf note"></div><div class="leaf title"></div></div>
+  <p class="hint">タップしてひらく</p>
+</div>
 <main>
   <div class="slip">
     <img id="kuji" alt="おみくじ">
-    <button id="save" type="button" aria-label="画像を保存" title="画像を保存">
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 19h14"/></svg>
-    </button>
+    <div class="tools">
+      <button id="save" type="button" aria-label="画像を保存" title="画像を保存">
+        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 19h14"/></svg>
+      </button>
+    </div>
   </div>
 </main>
 <script>
   const COUNT = 80;
-  const T_UNFOLD = 1500; // タイトル表示から注意書きを開くまで(ms)
-  const T_OPEN = 5000;   // 短冊全体へ切り替えるまで(ms)
+  const T_UNFOLD = 1100; // 注意書きが開くアニメーションの長さ(ms)。この間のタップは無視する
   const n = String(Math.floor(Math.random() * COUNT) + 1).padStart(2, '0');
   const slip = document.getElementById('kuji');
   const save = document.getElementById('save');
@@ -79,19 +94,31 @@
   history.scrollRestoration = 'manual';
   cover.src = 'img/cover.webp';
   slip.src = `img/${n}.webp`;
+  // タップで進める: 0=タイトル → 1=注意書きを開く → 2=短冊全体（-1は読み込み中・アニメーション中）
+  const cl = document.body.classList;
+  let step = -1;
+  document.getElementById('cover').addEventListener('click', () => {
+    if (step === 0) {
+      step = -1;
+      cl.add('unfold');
+      setTimeout(() => { step = 1; }, T_UNFOLD);
+    } else if (step === 1) {
+      step = 2;
+      window.scrollTo(0, 0); // 表紙の間にスクロールされていても、短冊は先頭から見せる
+      cl.add('open');
+    }
+  });
+
   Promise.all([slip.decode(), cover.decode()]).then(() => {
-    const cl = document.body.classList;
     cl.add('cover');
-    setTimeout(() => cl.add('unfold'), T_UNFOLD);
-    // 表紙の間にスクロールされていても、短冊は先頭から見せる
-    setTimeout(() => { window.scrollTo(0, 0); cl.add('open'); }, T_OPEN);
+    step = 0;
     // iOSの共有シートはクリック直後に呼ぶ必要があるため、保存用PNGは先に作っておく
     const c = document.createElement('canvas');
     c.width = slip.naturalWidth;
     c.height = slip.naturalHeight;
     c.getContext('2d').drawImage(slip, 0, 0);
     c.toBlob(b => { file = new File([b], `omikuji-${n}.png`, { type: 'image/png' }); }, 'image/png');
-  }, () => document.body.classList.add('open'));
+  }, () => { step = 2; cl.add('open'); });
 
   // iOSはダウンロードだと「ファイル」行きになるため、共有シート（「画像を保存」で写真へ）を使う
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent)
