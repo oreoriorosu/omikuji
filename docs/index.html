@@ -8,8 +8,9 @@
 <style>
   html, body { margin: 0; background: #ebe8e2; }
   main { display: flex; flex-direction: column; align-items: center; padding: 24px 16px 40px; }
+  .slip { position: relative; width: min(100%, 440px); }
   #kuji {
-    display: block; width: min(100%, 440px); height: auto; aspect-ratio: 882 / 3087;
+    display: block; width: 100%; height: auto; aspect-ratio: 882 / 3087;
     background: #fff; box-shadow: 0 2px 12px rgba(0, 0, 0, .15);
   }
 
@@ -44,10 +45,10 @@
   #kuji, #save { opacity: 0; transition: opacity .9s ease .3s; }
   body.open #kuji, body.open #save { opacity: 1; }
 
-  /* 保存アイコン: 短冊の上の余白の右端（短冊と重ならないよう固定表示にはしない） */
-  .bar { width: min(100%, 440px); display: flex; justify-content: flex-end; margin: -12px 0 8px; }
+  /* 保存アイコン: 短冊の右上の角に重ねる。全80枚で上端3.2%は全幅、右端11%は上部の文字が無い */
   #save {
-    width: 40px; height: 40px; padding: 0;
+    position: absolute; top: 4px; right: 4px;
+    width: 34px; height: 34px; padding: 0;
     display: flex; align-items: center; justify-content: center;
     color: #333; background: #fff; border: 0; border-radius: 50%;
     box-shadow: 0 1px 6px rgba(0, 0, 0, .18); cursor: pointer;
@@ -57,12 +58,12 @@
 <body>
 <div id="cover"><div class="fold"><div class="leaf note"></div><div class="leaf title"></div></div></div>
 <main>
-  <div class="bar">
+  <div class="slip">
+    <img id="kuji" alt="おみくじ">
     <button id="save" type="button" aria-label="画像を保存" title="画像を保存">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 19h14"/></svg>
     </button>
   </div>
-  <img id="kuji" alt="おみくじ">
 </main>
 <script>
   const COUNT = 80;
@@ -74,13 +75,16 @@
   const cover = new Image();
   let file;
 
+  // 引き直し（再読み込み）で前回のスクロール位置に戻らないようにする
+  history.scrollRestoration = 'manual';
   cover.src = 'img/cover.webp';
   slip.src = `img/${n}.webp`;
   Promise.all([slip.decode(), cover.decode()]).then(() => {
     const cl = document.body.classList;
     cl.add('cover');
     setTimeout(() => cl.add('unfold'), T_UNFOLD);
-    setTimeout(() => cl.add('open'), T_OPEN);
+    // 表紙の間にスクロールされていても、短冊は先頭から見せる
+    setTimeout(() => { window.scrollTo(0, 0); cl.add('open'); }, T_OPEN);
     // iOSの共有シートはクリック直後に呼ぶ必要があるため、保存用PNGは先に作っておく
     const c = document.createElement('canvas');
     c.width = slip.naturalWidth;
