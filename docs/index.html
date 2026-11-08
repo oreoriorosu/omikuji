@@ -44,18 +44,25 @@
   #kuji, #save { opacity: 0; transition: opacity .9s ease .3s; }
   body.open #kuji, body.open #save { opacity: 1; }
 
+  /* 保存アイコン: 短冊の上の余白の右端（短冊と重ならないよう固定表示にはしない） */
+  .bar { width: min(100%, 440px); display: flex; justify-content: flex-end; margin: -12px 0 8px; }
   #save {
-    margin-top: 24px; padding: 10px 32px;
-    font: 15px "Hiragino Mincho ProN", "Yu Mincho", serif; letter-spacing: .1em;
-    color: #222; background: #fff; border: 1px solid #555; border-radius: 999px;
+    width: 40px; height: 40px; padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: #333; background: #fff; border: 0; border-radius: 50%;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, .18); cursor: pointer;
   }
 </style>
 </head>
 <body>
 <div id="cover"><div class="fold"><div class="leaf note"></div><div class="leaf title"></div></div></div>
 <main>
+  <div class="bar">
+    <button id="save" type="button" aria-label="画像を保存" title="画像を保存">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 19h14"/></svg>
+    </button>
+  </div>
   <img id="kuji" alt="おみくじ">
-  <button id="save" type="button">画像を保存</button>
 </main>
 <script>
   const COUNT = 80;
